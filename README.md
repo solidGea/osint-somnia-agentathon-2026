@@ -18,6 +18,7 @@ Monorepo scaffold for `frontend` and `smartcontract`.
    npm run dev:frontend
    npm run build:frontend
    npm run start:frontend
+   ```
      - Smart contract:
    ```bash
    npx hardhat run --network somnia test/scripts/invokeMockPersonel.ts
