@@ -1,0 +1,13 @@
+node_modules
+dist
+.next
+out
+.env*
+!.env.example
+!**/.env.example
+.DS_Store
+*.log
+frontend/.next
+frontend/node_modules
+backend1/node_modules
+backend2/node_modules

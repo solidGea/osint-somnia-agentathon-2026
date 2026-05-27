@@ -1,0 +1,20 @@
+{
+  "name": "somnia-agents-examples",
+  "version": "1.0.0",
+  "description": "Example projects demonstrating Somnia AI Agents integration",
+  "private": true,
+  "scripts": {
+    "compile": "hardhat compile",
+    "invoke:mock-personel": "hardhat run file-request/scripts/invokeMockPersonel.ts --network somnia",
+    "deploy:file-request-v2": "hardhat run file-request/scripts/deployv2.ts --network somnia",
+    "set-base-url": "hardhat run file-request/scripts/setBaseUrl.ts --network somnia"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "5.0.0",
+    "@nomicfoundation/hardhat-viem": "2.0.6",
+    "hardhat": "^2.28.0",
+    "typescript": "5.8.3",
+    "ts-node": "10.9.2",
+    "dotenv": "16.5.0"
+  }
+}
