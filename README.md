@@ -10,7 +10,7 @@ Monorepo scaffold for `frontend` and `smartcontract`.
 ## Getting started
 1. Install dependencies from the monorepo root:
    ```bash
-   npm install
+   npm --workspace frontend install --legacy-peer-deps
    ```
 2. Run services methods from the monorepo root:
      - Frontend:
