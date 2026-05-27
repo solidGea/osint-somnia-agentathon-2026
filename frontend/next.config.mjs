@@ -5,6 +5,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const nextConfig = {
   reactStrictMode: true,
+  allowedDevOrigins: [
+    'http://osint-demo.blockdev.my.id',
+    'https://osint-demo.blockdev.my.id',
+    'http://osint-demo.blockdev.my.id:3000',
+    'https://osint-demo.blockdev.my.id:3000'
+  ],
   webpack(config) {
     config.resolve = config.resolve || {};
     config.resolve.alias = {

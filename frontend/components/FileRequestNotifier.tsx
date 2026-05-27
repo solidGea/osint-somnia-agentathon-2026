@@ -3,7 +3,8 @@
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useAccount } from "wagmi";
-import { Contract, WebSocketProvider } from "ethers";
+import { Contract } from "ethers";
+import { WebSocketProvider } from "@ethersproject/providers";
 
 const STORAGE_KEY = "queryFormState";
 const SOMNIA_TESTNET_WS = "wss://api.infra.testnet.somnia.network/ws";
