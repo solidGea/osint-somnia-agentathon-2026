@@ -11,3 +11,4 @@ frontend/.next
 frontend/node_modules
 backend1/node_modules
 backend2/node_modules
+.well-known/
