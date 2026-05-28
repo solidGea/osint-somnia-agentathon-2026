@@ -26,4 +26,9 @@ Monorepo scaffold for `frontend` and `smartcontract`.
    npx hardhat run --network somnia file-request/scripts/invokeMockPersonel.ts
    npx hardhat run --network somnia file-request/scripts/setBaseUrl.ts
    ```
+## Smart Contract Address
 
+The deployed `FileRequest` contract is available and verified on Somnia Explorer:
+
+- `0xdACd846bacaE495C9a8a7371C845BCB29B4B1705`
+- Verified at: https://shannon-explorer.somnia.network/address/0xdACd846bacaE495C9a8a7371C845BCB29B4B1705
