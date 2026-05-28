@@ -6,11 +6,14 @@ import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { createColumnHelper, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { FileSearch } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Carousel } from '@/components/ui/carousel';
+import { versionList } from '@/lib/version-list';
 
-const FILE_REQUEST_ADDRESS = process.env.NEXT_PUBLIC_FILE_REQUEST_ADDRESS ?? '0x5f34d508639ec035c54fb21265f303a10ef6aced';
+const FILE_REQUEST_ADDRESS = process.env.NEXT_PUBLIC_FILE_REQUEST_ADDRESS ?? '0xdacd846bacae495c9a8a7371c845bcb29b4b1705';
 const QUERY_TYPE = process.env.NEXT_PUBLIC_QUERY_TYPE_SC ?? 'lookup-mock';
 const STORAGE_KEY = process.env.NEXT_PUBLIC_STORAGE_KEY ?? 'queryState';
 const RETRIEVAL_BASE_URL = process.env.NEXT_PUBLIC_RETRIEVAL_BASE_URL ?? 'https://unknown.hosts';
@@ -50,7 +53,8 @@ const FILE_REQUEST_ABI: Abi = [
   {
     inputs: [
       { internalType: 'string', name: 'queryType', type: 'string' },
-      { internalType: 'string', name: 'target', type: 'string' }
+      { internalType: 'string', name: 'target', type: 'string' },
+      { internalType: 'string', name: 'apiKey', type: 'string' }
     ],
     name: 'requestData',
     outputs: [{ internalType: 'uint256', name: 'requestId', type: 'uint256' }],
@@ -437,7 +441,7 @@ function DataTable({ dataRecords, startIndex, total, currentPage, pageCount, onP
 }
 
 export default function QueryForm() {
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
   const [query, setQuery] = useState('');
@@ -447,7 +451,7 @@ export default function QueryForm() {
   const [error, setError] = useState<string | null>(null);
   const [receipts, setReceipts] = useState<ReceiptData[]>([]);
   const [dataRecords, setDataRecords] = useState<DataRecord[]>([]);
-  const [activeTab, setActiveTab] = useState<'intro' | 'lookup' | 'receipt' | 'data' | 'version' | 'dripper'>('intro');
+  const [activeTab, setActiveTab] = useState<'intro' | 'lookup' | 'receipt' | 'data' | 'info' | 'version' | 'dripper'>('intro');
   const [nativeSymbol, setNativeSymbol] = useState('ETH');
   const [explorerBase, setExplorerBase] = useState('https://explorer.somnia.network');
   const [receiptExplorerBase, setReceiptExplorerBase] = useState('https://agents.somnia.network');
@@ -459,6 +463,8 @@ export default function QueryForm() {
   const [proxyQuota, setproxyQuota] = useState<proxyQuota | null>(null);
   const [aceLogicLoading, setPrivLoading] = useState(false);
   const [aceLogicError, setPrivError] = useState<string | null>(null);
+
+  const latestVersion = versionList[0];
 
   const getStorageKey = (chainId: number | null) =>
     chainId ? `${STORAGE_KEY}-${chainId}` : STORAGE_KEY;
@@ -642,12 +648,14 @@ export default function QueryForm() {
       return;
     }
 
-    const target = query.trim();
-    const encodedTarget = encodeURIComponent(target);
-    setIsSubmitting(true);
-    setStatus('Fetching required deposit...');
+      if (!address) {
+        setError('Unable to get wallet address. Please reconnect.');
+        return;
+      }
 
     try {
+      const target = query.trim();
+      const encodedTarget = encodeURIComponent(target);
       const requiredDeposit = (await publicClient.readContract({
         address: FILE_REQUEST_ADDRESS as `0x${string}`,
         abi: FILE_REQUEST_ABI,
@@ -655,13 +663,27 @@ export default function QueryForm() {
       })) as bigint;
 
       setDeposit(requiredDeposit);
+      setStatus(`Requesting one-time API key...`);
+
+      const apiKeyResponse = await fetch('/privServer/getApiKey', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address }),
+      });
+
+      const apiKeyPayload = await apiKeyResponse.json();
+      if (!apiKeyResponse.ok || !apiKeyPayload.success || !apiKeyPayload.apiKey) {
+        throw new Error(`Failed to fetch API key: ${apiKeyPayload.error || apiKeyResponse.statusText}`);
+      }
+
+      const apiKey = apiKeyPayload.apiKey as string;
       setStatus(`Sending request with deposit ${formatDeposit(requiredDeposit)}...`);
 
       const txHashResult = await (walletClient as any).writeContract({
         address: FILE_REQUEST_ADDRESS as `0x${string}`,
         abi: FILE_REQUEST_ABI,
         functionName: 'requestData',
-        args: [QUERY_TYPE, encodedTarget],
+        args: [QUERY_TYPE, encodedTarget, apiKey],
         value: requiredDeposit,
       });
 
@@ -813,8 +835,11 @@ export default function QueryForm() {
                 <TabsTrigger value="lookup">Lookup</TabsTrigger>
                 <TabsTrigger value="receipt">Receipt</TabsTrigger>
                 <TabsTrigger value="data">Data</TabsTrigger>
-                <TabsTrigger value="version">Version</TabsTrigger>
                 <TabsTrigger value="dripper">Dripper</TabsTrigger>
+                <TabsTrigger value="version">Version</TabsTrigger>
+                <TabsTrigger value="info">Info</TabsTrigger>
+                
+             
               </TabsList>
               <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
                 <DialogTrigger asChild>
@@ -991,9 +1016,39 @@ export default function QueryForm() {
 
         <TabsContent value="version">
           <Card className="p-4">
+            <CardContent>
+              <Carousel
+                items={versionList}
+                renderItem={(item) => (
+                  <div className="grid gap-4 text-left sm:grid-cols-[auto_1fr]">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-cyan-500 text-slate-950">
+                      <FileSearch className="h-10 w-10" />
+                    </div>
+                    <div className="space-y-3 text-left">
+                      <div>
+                        <div className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-300">{item.status ?? 'Release'}</div>
+                        <h3 className="text-2xl font-semibold text-slate-100">{item.version}</h3>
+                        <p className="text-sm text-slate-400">{item.date}</p>
+                      </div>
+                      <p className="text-sm text-slate-300">{item.summary}</p>
+                      <ul className="list-disc space-y-2 pl-5 text-slate-400">
+                        {item.highlights.map((highlight, index) => (
+                          <li key={index}>{highlight}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="info">
+          <Card className="p-4">
             <CardContent className="space-y-4 text-sm text-slate-300 text-left">
               <div className="space-y-4 text-left">
-                <div className="text-lg font-semibold text-slate-100">Version 1.0.0</div>
+                <div className="text-lg font-semibold text-slate-100">Version {latestVersion?.version ?? 'N/A'}</div>
                 <ul className="list-disc pl-5 text-slate-400 text-left">
                   <li>Works only for testnet.</li>
                   <li>Data is saved locally in your browser storage.</li>
