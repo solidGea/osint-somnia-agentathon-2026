@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { Carousel } from '@/components/ui/carousel';
 
 type ReviewResultCardProps = {
   title: string;
@@ -27,6 +28,25 @@ export function ReviewResultCard({ title, section, index }: ReviewResultCardProp
   const infoLeak = section?.InfoLeak ?? section?.infoLeak;
   const numOfResults = section?.NumOfResults ?? section?.numOfResults ?? items.length;
 
+  const renderResultItem = (item: Record<string, any>, itemIndex: number) => (
+    <div key={`${title}-${itemIndex}`} className="w-full rounded-3xl border border-slate-800 bg-slate-900/95 p-4 overflow-hidden">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <span className="text-xs uppercase tracking-[0.24em] text-slate-500">Result {itemIndex + 1}</span>
+        <span className="text-xs text-slate-400">{Object.keys(item).length} fields</span>
+      </div>
+      <div className="grid gap-2 text-slate-200">
+        {Object.entries(item).map(([key, value]) => (
+          <div key={key} className="flex flex-col gap-1 rounded-2xl bg-slate-950/80 p-3">
+            <span className="text-[11px] uppercase tracking-[0.22em] text-slate-500">{formatFieldKey(key)}</span>
+            <span className={`text-sm break-words ${isSensitiveField(key) ? 'font-semibold text-rose-200' : 'text-slate-100'}`}>
+              {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="w-full rounded-3xl border border-slate-700 bg-slate-950/90 p-6 shadow-xl shadow-slate-950/30 transition-all duration-200 overflow-hidden">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -45,27 +65,15 @@ export function ReviewResultCard({ title, section, index }: ReviewResultCardProp
 
       {items.length > 0 ? (
         <div className="grid gap-4">
-          {items.slice(0, 5).map((item: Record<string, any>, itemIndex: number) => (
-            <div key={`${title}-${itemIndex}`} className="w-full rounded-3xl border border-slate-800 bg-slate-900/95 p-4 overflow-hidden">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <span className="text-xs uppercase tracking-[0.24em] text-slate-500">Result {itemIndex + 1}</span>
-                <span className="text-xs text-slate-400">{Object.keys(item).length} fields</span>
-              </div>
-              <div className="grid gap-2 text-slate-200">
-                {Object.entries(item).map(([key, value]) => (
-                  <div key={key} className="flex flex-col gap-1 rounded-2xl bg-slate-950/80 p-3">
-                    <span className="text-[11px] uppercase tracking-[0.22em] text-slate-500">{formatFieldKey(key)}</span>
-                    <span className={`text-sm break-words ${isSensitiveField(key) ? 'font-semibold text-rose-200' : 'text-slate-100'}`}>
-                      {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-          {items.length > 5 ? (
-            <div className="text-right text-xs text-slate-400">+{items.length - 5} more row{items.length - 5 === 1 ? '' : 's'}</div>
-          ) : null}
+          {items.length > 1 ? (
+            <Carousel
+              items={items}
+              className="space-y-4"
+              renderItem={renderResultItem}
+            />
+          ) : (
+            renderResultItem(items[0], 0)
+          )}
         </div>
       ) : (
         <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-4 text-sm text-slate-400">No data available for this section.</div>

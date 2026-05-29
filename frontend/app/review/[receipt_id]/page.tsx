@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePublicClient } from 'wagmi';
+import { Carousel } from '@/components/ui/carousel';
+import { Button } from '@/components/ui/button';
 import { ReviewResultCard } from '@/components/ReviewResultCard';
 
 const STORAGE_KEY = 'queryFormState';
@@ -36,6 +38,11 @@ export default function ReviewPage({ params }: PageProps) {
   const [reviewData, setReviewData] = useState<ReviewData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [downloadFormat, setDownloadFormat] = useState<'txt' | 'json'>('txt');
+  const [downloadLoading, setDownloadLoading] = useState<boolean>(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [popoverOpen, setPopoverOpen] = useState<boolean>(false);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
 
   const getStorageKeys = (chainId?: number | null) => {
     const keys = [] as string[];
@@ -119,45 +126,60 @@ export default function ReviewPage({ params }: PageProps) {
       .finally(() => setLoading(false));
   }, [retrievalLink]);
 
-  const renderListCards = () => {
-    const list = reviewData?.payload?.response?.data?.List;
-    if (!list || typeof list !== 'object') {
-      return (
-        <pre className="rounded-3xl bg-slate-900 p-4 text-xs text-slate-100 whitespace-pre-wrap break-words">
-          {JSON.stringify(reviewData, null, 2)}
-        </pre>
-      );
+  useEffect(() => {
+    if (!popoverOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+        setPopoverOpen(false);
+      }
+    };
+
+    window.addEventListener('mousedown', handleClickOutside);
+    return () => window.removeEventListener('mousedown', handleClickOutside);
+  }, [popoverOpen]);
+
+  const handleDownload = async () => {
+    if (!retrievalLink) return;
+    setDownloadLoading(true);
+    setDownloadError(null);
+
+    try {
+      const res = await window.fetch(retrievalLink);
+      if (!res.ok) {
+        throw new Error(`Failed to download retrieval link: ${res.status}`);
+      }
+
+      const rawText = await res.text();
+      let outputText = rawText;
+      let mimeType = 'text/plain';
+      const filename = `Receipt-${receiptId}-files.${downloadFormat}`;
+
+      if (downloadFormat === 'json') {
+        try {
+          const parsed = JSON.parse(rawText);
+          outputText = JSON.stringify(parsed, null, 2);
+        } catch {
+          outputText = JSON.stringify({ raw: rawText }, null, 2);
+        }
+        mimeType = 'application/json';
+      }
+
+      const blob = new Blob([outputText], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      setDownloadError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDownloadLoading(false);
     }
-
-    return Object.entries(list).map(([title, section]) => {
-      const items = Array.isArray(section?.Data) ? section.Data : [];
-      const infoLeak = section?.InfoLeak ?? section?.infoLeak;
-      const numOfResults = section?.NumOfResults ?? section?.numOfResults ?? (items.length || 0);
-
-      return (
-        <div key={title} className="rounded-3xl border border-slate-700 bg-slate-950/90 p-4 shadow-lg shadow-slate-950/30">
-          <div className="mb-3 flex items-center justify-between gap-4">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-100">{title}</h2>
-            <span className="rounded-full bg-slate-900 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-400">
-              {numOfResults} result{numOfResults === 1 ? '' : 's'}
-            </span>
-          </div>
-          {infoLeak ? <p className="mb-3 text-xs leading-5 text-slate-300">{infoLeak}</p> : null}
-          <div className="grid gap-3">
-            {items.length > 0 ? (
-              items.slice(0, 5).map((item: any, index: number) => (
-                <div key={index} className="rounded-2xl bg-slate-900 p-3 text-[11px] leading-5 text-slate-100">
-                  <pre className="whitespace-pre-wrap break-words">{JSON.stringify(item, null, 2)}</pre>
-                </div>
-              ))
-            ) : (
-              <div className="rounded-2xl bg-slate-900 p-3 text-xs text-slate-400">No data in this section.</div>
-            )}
-            {items.length > 5 ? <div className="text-right text-[11px] text-slate-400">+{items.length - 5} more rows</div> : null}
-          </div>
-        </div>
-      );
-    });
   };
 
   return (
@@ -176,24 +198,72 @@ export default function ReviewPage({ params }: PageProps) {
           ) : null}
           {retrievalLink ? <p className="mt-1 text-xs text-slate-500">Retrieval link loaded</p> : null}
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href="/"
-            className="rounded-2xl border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-semibold text-slate-100 transition hover:border-slate-500 hover:bg-slate-800"
-          >
-            Back to search
-          </Link>
-          {retrievalLink ? (
-            <a
-              href={retrievalLink}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="rounded-2xl border border-cyan-500 bg-cyan-500 px-4 py-2 text-xs font-semibold text-slate-950 transition hover:bg-cyan-400"
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/"
+              className="rounded-2xl border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-semibold text-slate-100 transition hover:border-slate-500 hover:bg-slate-800"
             >
-              Open original link
-            </a>
-          ) : null}
+              Back to search
+            </Link>
+            {retrievalLink ? (
+              <div ref={popoverRef} className="relative inline-flex">
+                <Button
+                  type="button"
+                  variant="default"
+                  className="bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/20"
+                  onClick={() => setPopoverOpen((prev) => !prev)}
+                >
+                  {downloadLoading ? 'Downloading…' : 'Download retrieval file'}
+                </Button>
+                {popoverOpen ? (
+                  <div className="absolute right-0 z-50 mt-2 w-72 rounded-3xl border border-slate-700 bg-slate-950 p-4 shadow-2xl shadow-slate-950/30">
+                    <div className="mb-4">
+                      <p className="text-sm font-semibold text-slate-100">Download retrieval file</p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        Choose a format and save the retrieval payload for this receipt.
+                      </p>
+                    </div>
+                    <div className="grid gap-3">
+                      <div className="grid gap-2 rounded-2xl border border-slate-800 bg-slate-900/95 p-3">
+                        <label className="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
+                          Format
+                        </label>
+                        <select
+                          value={downloadFormat}
+                          onChange={(event) => setDownloadFormat(event.target.value as 'txt' | 'json')}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-cyan-500"
+                        >
+                          <option value="txt">Plain text (.txt)</option>
+                          <option value="json">JSON (.json)</option>
+                        </select>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="w-full"
+                        onClick={async () => {
+                          await handleDownload();
+                          setPopoverOpen(false);
+                        }}
+                      >
+                        {downloadLoading ? 'Downloading…' : 'Save receipt file'}
+                      </Button>
+                      <p className="text-xs text-slate-500">
+                        File will be saved as <span className="font-medium text-slate-100">Receipt-{receiptId}-files.{downloadFormat}</span>
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </div>
+        {downloadError ? (
+          <div className="mt-2 rounded-2xl border border-rose-600 bg-rose-950/20 px-4 py-3 text-xs text-rose-200">
+            {downloadError}
+          </div>
+        ) : null}
       </div>
 
       {loading ? (
@@ -201,10 +271,28 @@ export default function ReviewPage({ params }: PageProps) {
       ) : error ? (
         <div className="rounded-3xl border border-rose-600 bg-rose-950/20 p-6 text-sm text-rose-200">{error}</div>
       ) : reviewData ? (
-        <div className="grid gap-4">
-          {Object.entries(reviewData.payload?.response?.data?.List ?? {}).map(([title, section], index) => (
-            <ReviewResultCard key={title} title={title} section={section} index={index} />
-          ))}
+        <div className="grid gap-4 overflow-hidden">
+          {(() => {
+            const sections = Object.entries(reviewData.payload?.response?.data?.List ?? {});
+            if (sections.length > 1) {
+              return (
+                <Carousel
+                  items={sections}
+                  className="space-y-4 w-full overflow-hidden"
+                  controlsPosition="top"
+                  renderItem={([title, section], index) => (
+                    <div className="w-full">
+                      <ReviewResultCard key={title} title={title} section={section} index={index} />
+                    </div>
+                  )}
+                />
+              );
+            }
+
+            return sections.map(([title, section], index) => (
+              <ReviewResultCard key={title} title={title} section={section} index={index} />
+            ));
+          })()}
         </div>
       ) : (
         <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 text-sm text-slate-400">No review data available.</div>
