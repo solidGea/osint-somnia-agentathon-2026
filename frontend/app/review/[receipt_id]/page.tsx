@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { usePublicClient } from 'wagmi';
+import { useAccount, usePublicClient } from 'wagmi';
 import { Carousel } from '@/components/ui/carousel';
 import { Button } from '@/components/ui/button';
 import { ReviewResultCard } from '@/components/ReviewResultCard';
@@ -33,6 +33,7 @@ type PageProps = {
 export default function ReviewPage({ params }: PageProps) {
   const receiptId = params.receipt_id;
   const publicClient = usePublicClient();
+  const { address: accountAddress } = useAccount();
   const [retrievalLink, setRetrievalLink] = useState<string | null>(null);
   const [query, setQuery] = useState<string>('');
   const [reviewData, setReviewData] = useState<ReviewData | null>(null);
@@ -139,37 +140,57 @@ export default function ReviewPage({ params }: PageProps) {
     return () => window.removeEventListener('mousedown', handleClickOutside);
   }, [popoverOpen]);
 
+  const ownerWalletAddress = useMemo(() => {
+    const data = reviewData?.payload?.response?.data as any;
+    const candidates = [
+      data?.owner,
+      data?.ownerAddress,
+      data?.owner_address,
+      data?.wallet,
+      data?.walletAddress,
+      data?.wallet_address,
+      data?.requester,
+      data?.requesterAddress,
+      data?.requester_address,
+      data?.address
+    ];
+
+    const normalized = candidates.find((value) =>
+      typeof value === 'string' && /^0x[a-fA-F0-9]{40}$/.test(value)
+    ) as string | undefined;
+
+    return normalized ?? accountAddress ?? '';
+  }, [reviewData, accountAddress]);
+
+  const fileName = useMemo(() => {
+    const ownerSegment = ownerWalletAddress ? `-${ownerWalletAddress}` : '';
+    return `Receipt-${receiptId}${ownerSegment}_files.${downloadFormat}`;
+  }, [receiptId, ownerWalletAddress, downloadFormat]);
+
   const handleDownload = async () => {
     if (!retrievalLink) return;
     setDownloadLoading(true);
     setDownloadError(null);
 
     try {
-      const res = await window.fetch(retrievalLink);
+      const res = await fetch('/api/download-retrieval', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ retrievalLink, format: downloadFormat, filename: fileName })
+      });
+
       if (!res.ok) {
-        throw new Error(`Failed to download retrieval link: ${res.status}`);
+        const errorBody = await res.text();
+        throw new Error(`Download failed: ${res.status} ${errorBody}`);
       }
 
-      const rawText = await res.text();
-      let outputText = rawText;
-      let mimeType = 'text/plain';
-      const filename = `Receipt-${receiptId}-files.${downloadFormat}`;
-
-      if (downloadFormat === 'json') {
-        try {
-          const parsed = JSON.parse(rawText);
-          outputText = JSON.stringify(parsed, null, 2);
-        } catch {
-          outputText = JSON.stringify({ raw: rawText }, null, 2);
-        }
-        mimeType = 'application/json';
-      }
-
-      const blob = new Blob([outputText], { type: mimeType });
+      const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = filename;
+      anchor.download = fileName;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
@@ -250,7 +271,7 @@ export default function ReviewPage({ params }: PageProps) {
                         {downloadLoading ? 'Downloading…' : 'Save receipt file'}
                       </Button>
                       <p className="text-xs text-slate-500">
-                        File will be saved as <span className="font-medium text-slate-100">Receipt-{receiptId}-files.{downloadFormat}</span>
+                        File will be saved as <span className="font-medium text-slate-100">{fileName}</span>
                       </p>
                     </div>
                   </div>
