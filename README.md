@@ -22,8 +22,8 @@ Monorepo scaffold for `frontend` and `smartcontract`.
      - Smart contract:
    ```bash
    npx hardhat compile
-   npx hardhat run --network somnia file-request/scripts/deployv2.ts
-   npx hardhat run --network somnia file-request/scripts/invokeMockPersonel.ts
-   npx hardhat run --network somnia file-request/scripts/setBaseUrl.ts
+   npx hardhat run --network somnia file-request/scripts/deployv3.ts
+   npx hardhat run --network somnia file-request/scripts/invokeV3.ts
+   npx hardhat run --network somnia file-request/scripts/setBaseUrlV3.ts
    ```
 
