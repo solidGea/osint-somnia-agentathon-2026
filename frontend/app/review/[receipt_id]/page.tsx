@@ -238,7 +238,7 @@ export default function ReviewPage({ params }: PageProps) {
                   {downloadLoading ? 'Downloading…' : 'Download retrieval file'}
                 </Button>
                 {popoverOpen ? (
-                  <div className="absolute right-0 z-50 mt-2 w-72 rounded-3xl border border-slate-700 bg-slate-950 p-4 shadow-2xl shadow-slate-950/30">
+                  <div className="absolute left-0 z-50 mt-2 min-w-[18rem] max-w-[min(22rem,calc(100vw-1rem))] rounded-3xl border border-slate-700 bg-slate-950 p-4 shadow-2xl shadow-slate-950/30">
                     <div className="mb-4">
                       <p className="text-sm font-semibold text-slate-100">Download retrieval file</p>
                       <p className="mt-1 text-xs text-slate-400">
