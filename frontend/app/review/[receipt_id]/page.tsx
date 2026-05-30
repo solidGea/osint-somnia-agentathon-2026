@@ -16,7 +16,8 @@ type ReviewData = {
       savedAt?: string;
       success?: boolean;
       data?: {
-        List?: Record<string, any>;
+        List?: Record<string, any> | any[];
+        list?: Record<string, any> | any[];
         NumOfDatabase?: number;
         NumOfResults?: number;
       };
@@ -28,6 +29,29 @@ type PageProps = {
   params: {
     receipt_id: string;
   };
+};
+
+const normalizeReviewSections = (data: any): [string, any][] => {
+  if (!data) return [];
+
+  const list = data.List ?? data.list;
+  if (list && typeof list === 'object' && !Array.isArray(list)) {
+    return Object.entries(list);
+  }
+
+  if (Array.isArray(data)) {
+    return [['Results', data]];
+  }
+
+  if (data && typeof data === 'object' && Array.isArray(data.Data)) {
+    return [['Results', data]];
+  }
+
+  if (data && typeof data === 'object') {
+    return Object.entries(data);
+  }
+
+  return [];
 };
 
 export default function ReviewPage({ params }: PageProps) {
@@ -294,7 +318,7 @@ export default function ReviewPage({ params }: PageProps) {
       ) : reviewData ? (
         <div className="grid gap-4 overflow-hidden">
           {(() => {
-            const sections = Object.entries(reviewData.payload?.response?.data?.List ?? {});
+            const sections = normalizeReviewSections(reviewData.payload?.response?.data);
             if (sections.length > 1) {
               return (
                 <Carousel

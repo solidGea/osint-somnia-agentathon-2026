@@ -1,7 +1,6 @@
 import hre from 'hardhat';
 
 // ⚠️ Replace with your deployed FileRequest contract address
-//const CONTRACT_ADDRESS = '0xcb1ae432706fd13843708fc2a3da4408635dd76a' as `0x${string}`; //v1
 const CONTRACT_ADDRESS = '0xaddressthatreceivedfromdeployment' as `0x${string}`; //v2
 
 const TARGET = process.env.TARGET || 'random person';
